@@ -13,7 +13,7 @@
     'use strict';
 
     const API_BASE = "https://www.nationstates.net/cgi-bin/api.cgi?q=card+trades";
-    const USER_AGENT = "9006";
+    const USER_AGENT = "CHANGE ME TO YOUR NATION (9003's Chart additon script)";
     const CURRENT_SEASON = "3";
 
     // Utility function to fetch card data
