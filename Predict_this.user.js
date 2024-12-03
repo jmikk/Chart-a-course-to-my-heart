@@ -6,6 +6,7 @@
 // @author       Your Name
 // @match        https://www.nationstates.net/page=deck/card=*
 // @require      https://cdn.jsdelivr.net/npm/chart.js
+// @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
 // ==/UserScript==
 
@@ -91,37 +92,6 @@
             .filter(trade => trade.price !== null); // Exclude trades with null prices
     }
 
-function createControlInputs(onTradeLimitChange) {
-    const controlContainer = document.createElement("div");
-    controlContainer.style.marginBottom = "10px";
-    controlContainer.style.textAlign = "center"; // Center the input box
-    controlContainer.style.position = "relative"; // Ensure it adjusts correctly above the chart
-
-    const savedTradeLimit = localStorage.getItem('tradeLimit') || "1000";
-
-    const tradeLimitLabel = document.createElement("label");
-    tradeLimitLabel.textContent = "Trades to Show: ";
-    tradeLimitLabel.style.marginRight = "10px";
-
-    const tradeLimitInput = document.createElement("input");
-    tradeLimitInput.type = "number";
-    tradeLimitInput.min = "1";
-    tradeLimitInput.value = savedTradeLimit;
-    tradeLimitInput.style.width = "80px";
-    tradeLimitInput.style.padding = "5px";
-
-    tradeLimitInput.onchange = () => {
-        const newLimit = parseInt(tradeLimitInput.value) || 1000;
-        localStorage.setItem('tradeLimit', newLimit);
-        onTradeLimitChange(newLimit);
-    };
-
-    controlContainer.appendChild(tradeLimitLabel);
-    controlContainer.appendChild(tradeLimitInput);
-
-    return controlContainer;
-}
-
 
     // Replace the chart
     function replaceChart(data, tradeLimit) {
@@ -186,23 +156,19 @@ function main() {
     const { cardId, season } = getCardInfo();
     if (cardId) {
         // Create the chart container
-        const container = document.createElement("div");
-        container.id = "chart-container";
-        container.style.marginTop = "20px"; // Add spacing below the input box
-        document.body.appendChild(container);
 
         let tradeLimit = parseInt(localStorage.getItem('tradeLimit')) || 1000;
 
-        // Create the input box container
-        const control = createControlInputs(newLimit => {
+
+
+
+        // Setup the menu command
+        setupMenuCommand(newLimit => {
             tradeLimit = newLimit;
             fetchCardData(cardId, season)
                 .then(data => replaceChart(data, tradeLimit))
                 .catch(err => console.error(err));
         });
-
-        // Insert the input box above the chart
-        document.body.insertBefore(control, container);
 
         fetchCardData(cardId, season)
             .then(data => replaceChart(data, tradeLimit))
@@ -210,11 +176,26 @@ function main() {
     }
 }
 
-// Ensure the chart container is created and input is inserted above it
-document.addEventListener("DOMContentLoaded", () => {
-    document.querySelectorAll('span.button-group.chart-range-buttons').forEach(el => el.remove());
-    main();
-});
+
+
+
+    function setupMenuCommand(onTradeLimitChange) {
+    GM_registerMenuCommand("Set Trades to Show", () => {
+        const currentLimit = parseInt(localStorage.getItem('tradeLimit')) || 1000;
+        const newLimit = prompt("Enter the number of trades to show:", currentLimit);
+        if (newLimit !== null) {
+            const parsedLimit = parseInt(newLimit);
+            if (!isNaN(parsedLimit) && parsedLimit > 0) {
+                localStorage.setItem('tradeLimit', parsedLimit);
+                onTradeLimitChange(parsedLimit);
+                alert(`Trades to Show set to ${parsedLimit}`);
+            } else {
+                alert("Invalid input. Please enter a positive number.");
+            }
+        }
+    });
+}
+
 
 
 
