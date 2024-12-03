@@ -53,25 +53,29 @@
 
     // Calculate FMV using a rolling 15-trade window
     function calculateRollingFMV(trades, threshold = 2) {
-        const rollingFMVs = [];
-        for (let i = 0; i < trades.length; i++) {
-            const windowStart = Math.max(0, i - 14); // Include the current trade and the 14 before it
-            const recentTrades = trades.slice(windowStart, i + 1).map(trade => trade.price);
+    const rollingFMVs = [];
+    for (let i = 0; i < trades.length; i++) {
+        const windowEnd = Math.min(trades.length, i + 15); // Include the current trade and the 14 after it
+        console.log(`Processing window: Trade ${i} to ${windowEnd - 1}`);
 
-            // Calculate mean and standard deviation
-            const mean = recentTrades.reduce((sum, price) => sum + price, 0) / recentTrades.length;
-            const deviation = Math.sqrt(
-                recentTrades.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / recentTrades.length
-            );
+        const recentTrades = trades.slice(i, windowEnd).map(trade => trade.price); // Current trade + 14 forward trades
+        console.log(`Recent trades: ${recentTrades}`);
 
-            // Filter prices within the threshold
-            const filteredPrices = recentTrades.filter(price => Math.abs(price - mean) <= threshold * deviation);
-            const fmv = filteredPrices.reduce((sum, price) => sum + price, 0) / filteredPrices.length || mean;
+        // Calculate mean and standard deviation
+        const mean = recentTrades.reduce((sum, price) => sum + price, 0) / recentTrades.length;
+        const deviation = Math.sqrt(
+            recentTrades.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / recentTrades.length
+        );
 
-            rollingFMVs.push(fmv);
-        }
-        return rollingFMVs.reverse(); // Reverse for chronological display
+        // Filter prices within the threshold
+        const filteredPrices = recentTrades.filter(price => Math.abs(price - mean) <= threshold * deviation);
+        const fmv = filteredPrices.reduce((sum, price) => sum + price, 0) / filteredPrices.length || mean;
+
+        rollingFMVs.push(fmv);
     }
+    return rollingFMVs.reverse(); // No need to reverse, as the FMV matches the original trade order
+}
+
 
     // Process trade data
     function processTrades(data) {
@@ -87,36 +91,37 @@
             .filter(trade => trade.price !== null); // Exclude trades with null prices
     }
 
-    // Create controls for trade limit
-    function createControlInputs(onTradeLimitChange) {
-        const controlContainer = document.createElement("div");
-        controlContainer.style.margin = "10px 0";
-        controlContainer.style.textAlign = "center";
+function createControlInputs(onTradeLimitChange) {
+    const controlContainer = document.createElement("div");
+    controlContainer.style.marginBottom = "10px";
+    controlContainer.style.textAlign = "center"; // Center the input box
+    controlContainer.style.position = "relative"; // Ensure it adjusts correctly above the chart
 
-        const savedTradeLimit = localStorage.getItem('tradeLimit') || "1000";
+    const savedTradeLimit = localStorage.getItem('tradeLimit') || "1000";
 
-        const tradeLimitLabel = document.createElement("label");
-        tradeLimitLabel.textContent = "Trades to Show: ";
-        tradeLimitLabel.style.marginRight = "10px";
+    const tradeLimitLabel = document.createElement("label");
+    tradeLimitLabel.textContent = "Trades to Show: ";
+    tradeLimitLabel.style.marginRight = "10px";
 
-        const tradeLimitInput = document.createElement("input");
-        tradeLimitInput.type = "number";
-        tradeLimitInput.min = "1";
-        tradeLimitInput.value = savedTradeLimit;
-        tradeLimitInput.style.width = "80px";
-        tradeLimitInput.style.padding = "5px";
+    const tradeLimitInput = document.createElement("input");
+    tradeLimitInput.type = "number";
+    tradeLimitInput.min = "1";
+    tradeLimitInput.value = savedTradeLimit;
+    tradeLimitInput.style.width = "80px";
+    tradeLimitInput.style.padding = "5px";
 
-        tradeLimitInput.onchange = () => {
-            const newLimit = parseInt(tradeLimitInput.value) || 1000;
-            localStorage.setItem('tradeLimit', newLimit);
-            onTradeLimitChange(newLimit);
-        };
+    tradeLimitInput.onchange = () => {
+        const newLimit = parseInt(tradeLimitInput.value) || 1000;
+        localStorage.setItem('tradeLimit', newLimit);
+        onTradeLimitChange(newLimit);
+    };
 
-        controlContainer.appendChild(tradeLimitLabel);
-        controlContainer.appendChild(tradeLimitInput);
+    controlContainer.appendChild(tradeLimitLabel);
+    controlContainer.appendChild(tradeLimitInput);
 
-        return controlContainer;
-    }
+    return controlContainer;
+}
+
 
     // Replace the chart
     function replaceChart(data, tradeLimit) {
@@ -177,30 +182,42 @@
         });
     }
 
-    // Main function
-    function main() {
-        const { cardId, season } = getCardInfo();
-        if (cardId) {
-            const container = document.createElement("div");
-            container.id = "chart-container";
-            document.body.appendChild(container);
+function main() {
+    const { cardId, season } = getCardInfo();
+    if (cardId) {
+        // Create the chart container
+        const container = document.createElement("div");
+        container.id = "chart-container";
+        container.style.marginTop = "20px"; // Add spacing below the input box
+        document.body.appendChild(container);
 
-            let tradeLimit = parseInt(localStorage.getItem('tradeLimit')) || 1000;
+        let tradeLimit = parseInt(localStorage.getItem('tradeLimit')) || 1000;
 
-            const control = createControlInputs(newLimit => {
-                tradeLimit = newLimit;
-                fetchCardData(cardId, season)
-                    .then(data => replaceChart(data, tradeLimit))
-                    .catch(err => console.error(err));
-            });
-
-            document.body.insertBefore(control, container);
-
+        // Create the input box container
+        const control = createControlInputs(newLimit => {
+            tradeLimit = newLimit;
             fetchCardData(cardId, season)
                 .then(data => replaceChart(data, tradeLimit))
                 .catch(err => console.error(err));
-        }
-    }
+        });
 
+        // Insert the input box above the chart
+        document.body.insertBefore(control, container);
+
+        fetchCardData(cardId, season)
+            .then(data => replaceChart(data, tradeLimit))
+            .catch(err => console.error(err));
+    }
+}
+
+// Ensure the chart container is created and input is inserted above it
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll('span.button-group.chart-range-buttons').forEach(el => el.remove());
+    main();
+});
+
+
+
+    document.querySelectorAll('span.button-group.chart-range-buttons').forEach(el => el.remove());
     main();
 })();
